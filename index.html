@@ -1,0 +1,1079 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<title>Revisión de Rotación JD</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%230B2E5B%22/%3E%3Cpath d=%22M8 22V14M14 22V9M20 22v-6M26 22V12%22 stroke=%22white%22 stroke-width=%223%22/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: mesa de control — riel izquierdo con los pasos (archivo, marcas, criterios) y a la derecha el libro de resultados. */
+/* Corporativo: fondo blanco, escala de azules oscuros (marino a azul acero) para jerarquía y prioridades. */
+:root{
+  --bg:#FFFFFF; --surface:#FFFFFF; --sunk:#F2F5FA; --ink:#0B1F3A; --muted:#4A5D78; --line:#D3DCE8;
+  --accent:#0B2E5B; --accent-ink:#FFFFFF; --accent-soft:#E2EAF5;
+  --crit:#081A3A; --crit-soft:#081A3A; --alta:#163F78; --alta-soft:#163F78; --media:#2D5C9A; --media-soft:#2D5C9A; --bajo:#5B84BD; --bajo-soft:#5B84BD;
+  --ok:#163F78; --ok-soft:#E2EAF5;
+  --warn:#163F78; --danger:#9B1C1C;
+  --f-display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"Public Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --r:8px;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+[hidden]{display:none!important}
+body{margin:0}
+img{max-width:100%}
+body{background:var(--bg);color:var(--ink);font:400 14px/1.5 var(--f-body);padding-inline:16px;padding-block:20px 48px}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1,h2,h3{margin:0;text-wrap:balance}
+.mono,.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+header.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px 24px;background:var(--accent);color:var(--accent-ink);border-radius:var(--r);padding:20px 22px}
+header.top h1{font:700 clamp(28px,4vw,40px)/1 var(--f-display);letter-spacing:.01em;text-transform:uppercase}
+header.top p{margin:6px 0 0;color:#C9D6EA;max-width:62ch}
+.filetag{display:flex;flex-direction:column;align-items:flex-end;gap:2px;min-width:0}
+.filetag .lbl{font:600 12px/1 var(--f-display);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.filetag .name{font:500 13px/1.3 var(--f-mono);overflow-wrap:anywhere;text-align:right}
+.grid{display:grid;grid-template-columns:minmax(300px,360px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+.rail{display:flex;flex-direction:column;gap:14px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px)}
+@media (max-width:900px){.rail{position:static}}
+@media (max-width:640px){.filetag{align-items:flex-start}.filetag .name{text-align:left}}
+.step{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.step-h{display:flex;align-items:baseline;gap:10px}
+.step-h .n{font:700 13px/1 var(--f-mono);color:var(--accent-ink);background:var(--accent);border-radius:4px;padding:3px 6px}
+.step-h h2{font:700 19px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase}
+.drop{border:1.5px dashed var(--line);border-radius:8px;padding:16px;text-align:center;cursor:pointer;background:var(--sunk);transition:border-color .15s,background .15s;display:flex;flex-direction:column;gap:4px}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.drop strong{font-weight:600}
+.drop span{color:var(--muted);font-size:12.5px}
+.status{font-size:13px;display:flex;flex-direction:column;gap:6px}
+.status .ok{color:var(--ok)} .status .err{color:var(--danger)} .status .wrn{color:var(--warn)}
+details.cols summary{cursor:pointer;font-size:13px;color:var(--muted)}
+details.cols summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.coltab{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}
+.coltab td{padding:3px 4px;border-bottom:1px solid var(--line)}
+.coltab td:first-child{font-family:var(--f-mono)}
+.st{font:600 11px/1 var(--f-display);letter-spacing:.08em;text-transform:uppercase;padding:2px 6px;border-radius:3px}
+.st.ok{background:var(--ok-soft);color:var(--ok)} .st.movida{background:var(--accent-soft);color:var(--accent)} .st.falta{background:#F6E3E3;color:var(--danger)}
+/* multiselect */
+.ms{position:relative}
+.ms-btn{width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--sunk);color:var(--ink);font:500 14px var(--f-body);cursor:pointer;text-align:left}
+.ms-btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.ms-btn svg{flex:none;transition:transform .15s}
+.ms-btn[aria-expanded="true"] svg{transform:rotate(180deg)}
+.ms-panel{position:absolute;z-index:20;left:0;right:0;top:calc(100% + 6px);background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 12px 32px rgba(10,30,35,.18);display:flex;flex-direction:column;max-height:min(440px,70vh)}
+.ms-tools{display:flex;gap:8px;padding:10px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.ms-tools input{flex:1 1 140px;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--sunk);color:var(--ink);font:400 14px var(--f-body)}
+.ms-tools input:focus-visible{outline:2px solid var(--accent);outline-offset:0}
+.ms-list{overflow:auto;padding:4px 0}
+.ms-item{display:grid;grid-template-columns:auto minmax(0,1fr);gap:1px 10px;align-items:center;padding:6px 12px;cursor:pointer}
+.ms-item input{grid-row:span 2}
+.ms-item:hover{background:var(--sunk)}
+.ms-item input{accent-color:var(--accent);width:16px;height:16px;margin:0}
+.ms-item .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ms-item .mt{font:400 11.5px var(--f-mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ms-item .rv{color:var(--alta);font-weight:500}
+.ms-empty{padding:12px;color:var(--muted);font-size:13px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:3px 4px 3px 9px;border-radius:999px;background:var(--accent-soft);color:var(--ink);font:600 12px var(--f-body)}
+.chip button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:0 4px;border-radius:999px}
+.chip button:hover{color:var(--ink)} .chip button:focus-visible{outline:2px solid var(--accent)}
+.hint{font-size:12.5px;color:var(--muted)}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;padding:7px 10px;font:600 13px var(--f-body);cursor:pointer}
+.btn:hover{border-color:var(--accent)} .btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.params{display:grid;grid-template-columns:minmax(0,1fr) 128px;gap:8px 10px;align-items:center}
+.params label{font-size:13px;line-height:1.3}
+.params input{width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:6px;background:var(--sunk);color:var(--ink);font:500 13px var(--f-mono);text-align:right}
+.params input:focus-visible{outline:2px solid var(--accent);outline-offset:0}
+.go{display:flex;flex-direction:column;gap:8px}
+.primary{width:100%;border:0;border-radius:8px;padding:14px 16px;background:var(--accent);color:var(--accent-ink);font:700 18px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px}
+.primary:hover{filter:brightness(1.08)} .primary:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.primary:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.go .msg{font-size:12.5px;color:var(--muted);text-align:center;min-height:1.2em}
+.go .msg.err{color:var(--danger)} .go .msg.ok{color:var(--ok)}
+/* results */
+.results{display:flex;flex-direction:column;gap:16px;min-width:0}
+.kpis{border-top:4px solid var(--accent) !important;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+@media (max-width:640px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{padding:14px 16px;display:flex;flex-direction:column;gap:4px;border-right:1px solid var(--line);min-width:0}
+.kpi:last-child{border-right:0}
+@media (max-width:640px){.kpi:nth-child(2){border-right:0}.kpi:nth-child(-n+2){border-bottom:1px solid var(--line)}}
+.kpi .k{font:600 12px/1.2 var(--f-display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.kpi .v{font:500 clamp(20px,2.4vw,26px)/1.1 var(--f-mono);font-variant-numeric:tabular-nums}
+.kpi .s{font-size:12px;color:var(--muted)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel-h{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.panel-h h3{font:700 18px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase}
+.panel-h .hint{margin:0}
+.bar{display:flex;height:14px;border-radius:4px;overflow:hidden;background:var(--sunk)}
+.bar i{display:block;height:100%}
+.legend{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:640px){.legend{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.lg{display:flex;flex-direction:column;gap:2px;padding-left:10px;border-left:4px solid var(--c)}
+.lg .t{font:600 12px var(--f-display);letter-spacing:.08em;text-transform:uppercase}
+.lg .n{font:500 15px var(--f-mono)}
+.lg .c{font-size:12px;color:var(--muted)}
+.two{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+.scroll{overflow-x:auto;min-width:0}
+table.t{width:100%;border-collapse:collapse;font-size:13px}
+table.t th{font:600 12px/1.2 var(--f-display);letter-spacing:.08em;text-transform:uppercase;color:#FFFFFF;background:var(--accent);text-align:left;padding:8px;white-space:nowrap}
+table.t td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+table.t .r{text-align:right}
+.brandbar{position:relative;height:6px;background:var(--sunk);border-radius:3px;min-width:80px;margin-top:6px}
+.brandbar i{position:absolute;inset:0 auto 0 0;background:var(--alta);border-radius:3px}
+.pill{display:inline-block;font:700 11.5px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;padding:4px 7px;border-radius:4px;white-space:nowrap}
+.p1{background:var(--crit);color:#FFFFFF} .p2{background:var(--alta);color:#FFFFFF} .p3{background:var(--media);color:#FFFFFF} .p4{background:var(--bajo);color:#FFFFFF}
+.prod{min-width:240px;max-width:420px}
+.prod .d{font-weight:500;line-height:1.35}
+.prod .m{font:400 11.5px var(--f-mono);color:var(--muted);margin-top:2px}
+.wk{display:flex;gap:3px}
+.wk b{font:500 12px/1 var(--f-mono);width:22px;text-align:center;padding:4px 0;border-radius:3px;background:var(--sunk)}
+.wk b.z{color:var(--muted)} .wk b.neg{color:var(--danger)}
+.jd{white-space:nowrap}
+.act{font-size:12px;color:var(--muted);min-width:220px;max-width:340px}
+.more{align-self:flex-start}
+.empty{padding:28px 16px;text-align:center;color:var(--muted)}
+.loading{opacity:.55;pointer-events:none}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+
+/* pantallas */
+.steps{display:flex;gap:6px;flex-wrap:wrap;list-style:none;margin:0;padding:0}
+.steps li{display:flex;align-items:center;gap:6px;font:600 13px/1 var(--f-display);letter-spacing:.1em;text-transform:uppercase;color:#AFC2DE;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.25);background:transparent}
+.steps li b{font:600 11px/1 var(--f-mono);display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,.14);color:#C9D6EA}
+.steps li.on{color:var(--accent);background:#FFFFFF;border-color:#FFFFFF} .steps li.on b{background:var(--accent);color:#FFFFFF}
+.steps li.done{color:#FFFFFF} .steps li.done b{background:#5B84BD;color:#FFFFFF}
+.screen{display:flex;flex-direction:column;gap:16px}
+.center{max-width:720px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.bigdrop{border:2px dashed var(--line);border-radius:14px;padding:clamp(28px,6vw,56px) 20px;text-align:center;cursor:pointer;background:var(--surface);display:flex;flex-direction:column;align-items:center;gap:10px;transition:border-color .15s,background .15s}
+.bigdrop:hover,.bigdrop.over{border-color:var(--accent);background:var(--accent-soft)}
+.bigdrop:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.bigdrop .ic{width:56px;height:56px;border-radius:12px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center}
+.bigdrop strong{font:700 24px/1.1 var(--f-display);letter-spacing:.04em;text-transform:uppercase}
+.bigdrop span{color:var(--muted);max-width:52ch}
+.spec{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+.spec.secure{display:flex;gap:14px;align-items:flex-start;border-color:var(--accent);background:var(--sunk)}
+.spec .lock{flex:none;width:40px;height:40px;border-radius:10px;display:grid;place-items:center;background:var(--accent);color:#FFFFFF}
+.linkbtn.danger,.btn.danger{color:var(--accent)}
+.btn.danger:hover{border-color:var(--accent)}
+.spec h3{font:700 15px/1 var(--f-display);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px}
+.spec ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:13.5px;color:var(--muted)}
+.spec code{font-family:var(--f-mono);font-size:12px;color:var(--ink);background:var(--sunk);padding:1px 4px;border-radius:3px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card h2{font:700 20px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase}
+.filesum{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:baseline;justify-content:space-between}
+.filesum .nm{font:500 13px var(--f-mono);overflow-wrap:anywhere}
+.allrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--sunk);cursor:pointer;font-weight:600}
+.allrow input{accent-color:var(--accent);width:18px;height:18px;margin:0}
+.actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.linkbtn{border:0;background:none;color:var(--accent);font:600 13px var(--f-body);cursor:pointer;padding:6px 0;text-decoration:underline;text-underline-offset:3px}
+.linkbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.primary.inline{width:auto;min-width:220px}
+.selsum{font-size:13px;color:var(--muted)}
+.selsum strong{color:var(--ink)}
+.railsum{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.railsum .nm{font:500 12.5px var(--f-mono);overflow-wrap:anywhere}
+
+/* grupos predeterminados */
+.presets-h{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 12px}
+.presets-h .lbl{font:700 14px/1 var(--f-display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.presets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:760px){.presets{grid-template-columns:minmax(0,1fr)}}
+.preset{border:1px solid var(--line);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--surface);min-width:0}
+.preset.active{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--accent-soft)}
+.preset .ph{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.preset .ph strong{font:700 17px/1.1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.preset .ph span{font:500 11.5px var(--f-mono);color:var(--muted);white-space:nowrap}
+.pchips{display:flex;flex-wrap:wrap;gap:4px;flex:1;align-content:flex-start;align-items:flex-start}
+#scr2 .center{max-width:980px}
+.pc{display:inline-flex;align-items:center;gap:2px;font:600 11px/1 var(--f-body);padding:4px 6px;border-radius:4px;background:var(--sunk);color:var(--ink);border:1px solid var(--line)}
+.pc.miss{border-style:dashed;color:var(--muted);background:transparent}
+.pc button{border:0;background:none;color:var(--muted);cursor:pointer;font-size:13px;line-height:1;padding:0 2px}
+.pc button:hover{color:var(--ink)} .pc button:focus-visible{outline:2px solid var(--accent)}
+.pact{display:flex;gap:6px;flex-wrap:wrap}
+.btn.solid{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.solid:hover{filter:brightness(1.15)}
+.padd{display:flex;gap:6px}
+.padd input{flex:1;min-width:0;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font:500 13px var(--f-body);text-transform:uppercase}
+.padd input:focus-visible{outline:2px solid var(--accent);outline-offset:0}
+.pnote{font-size:11.5px;color:var(--muted)}
+.or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+</style>
+</head>
+<body>
+
+
+<div class="wrap" id="app">
+  <header class="top">
+    <div>
+      <h1>Revisión de Rotación JD</h1>
+      <p>Detecta los productos con costo alto y venta baja en el informe de rotación de inventario.</p>
+    </div>
+    <ol class="steps" id="steps" aria-label="Pasos">
+      <li data-s="1"><b>1</b>Archivo</li><li data-s="2"><b>2</b>Marcas</li><li data-s="3"><b>3</b>Revisión</li>
+    </ol>
+  </header>
+
+  <!-- PANTALLA 1: carga -->
+  <section class="screen" id="scr1">
+    <div class="center">
+      <div class="bigdrop" id="drop" tabindex="0" role="button" aria-label="Carga archivo de rotación de inventarios en Excel">
+        <div class="ic"><svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 19V5m0 0l-5 5m5-5l5 5M5 19v4h18v-4" fill="none" stroke="currentColor" stroke-width="2.2"/></svg></div>
+        <strong>Carga archivo de rotación de inventarios</strong>
+        <span>Arrastra aquí el archivo .xlsx o haz clic para elegirlo.</span>
+      </div>
+      <input type="file" id="fileInput" accept=".xlsx,.xlsm" hidden>
+      <div class="status" id="fileStatus" aria-live="polite"></div>
+      <details class="cols" id="colsBox" hidden><summary id="colsSum">Columnas usadas</summary><table class="coltab" id="colTab"></table></details>
+      <div class="spec secure">
+        <div class="lock"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="4" y="9.5" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7.5 9.5V7a3.5 3.5 0 0 1 7 0v2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></div>
+        <div>
+          <h3>Tus datos están protegidos</h3>
+          <ul>
+            <li>El archivo se procesa en tu navegador; no se envía a ningún servidor.</li>
+            <li>Los datos del archivo no se guardan: al cerrar o recargar la página, se borran.</li>
+            <li>La página tiene bloqueado cualquier envío de información a internet.</li>
+            <li>Puedes borrar los datos cargados en cualquier momento con el botón “Borrar datos”.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PANTALLA 2: marcas -->
+  <section class="screen" id="scr2" hidden>
+    <div class="center">
+      <div class="card">
+        <div class="filesum">
+          <span class="nm" id="fileName2"></span>
+          <span class="selsum" id="fileCount"></span>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Elige las marcas</h2>
+        <div class="presets-h"><span class="lbl">Grupos predeterminados</span><span class="hint">Los cambios a los grupos se guardan solo en este navegador.</span></div>
+        <div class="presets" id="presets"></div>
+        <datalist id="brandOptions"></datalist>
+        <div class="or"><span>o elige manualmente</span></div>
+        <label class="allrow" for="allBrands"><input type="checkbox" id="allBrands"> Todas las marcas <span class="selsum" id="allCount"></span></label>
+        <div class="ms" id="ms">
+          <button type="button" class="ms-btn" id="msBtn" aria-haspopup="listbox" aria-expanded="false" aria-controls="msPanel">
+            <span id="msLabel">Selecciona una o más marcas</span>
+            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+          </button>
+          <div class="ms-panel" id="msPanel" hidden>
+            <div class="ms-tools">
+              <input type="search" id="msSearch" placeholder="Buscar marca…" aria-label="Buscar marca">
+              <button type="button" class="btn" id="msAll">Marcar visibles</button>
+              <button type="button" class="btn" id="msNone">Quitar visibles</button>
+            </div>
+            <div class="ms-list" id="msList" role="listbox" aria-multiselectable="true"></div>
+          </div>
+        </div>
+        <div class="chips" id="chips"></div>
+        <div class="selsum" id="selSum"></div>
+      </div>
+      <div class="actions">
+        <div style="display:flex;gap:16px;flex-wrap:wrap"><button type="button" class="linkbtn" id="backTo1">← Cargar otro archivo</button><button type="button" class="linkbtn danger" id="wipe2">Borrar datos</button></div>
+        <button type="button" class="primary inline" id="goBtn" disabled>Revisar</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- PANTALLA 3: dashboard -->
+  <section class="screen" id="scr3" hidden>
+    <div class="grid">
+      <aside class="rail">
+        <section class="step">
+          <div class="step-h"><h2>Archivo y marcas</h2></div>
+          <div class="railsum">
+            <span class="nm" id="fileName3"></span>
+            <span id="brandSum3"></span>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn" id="backTo2">Cambiar marcas</button>
+            <button type="button" class="btn" id="backTo1b">Cargar otro archivo</button>
+            <button type="button" class="btn danger" id="wipe3">Borrar datos</button>
+          </div>
+        </section>
+        <section class="step" aria-labelledby="s3">
+          <div class="step-h"><h2 id="s3">Criterios</h2></div>
+          <div class="params">
+            <label for="pVentas">Ventas por semana menores a (unid.)</label><input id="pVentas" type="number" min="1" step="1">
+            <label for="pStock">Stock mínimo, mayor a (unid.)</label><input id="pStock" type="number" min="0" step="1">
+            <label for="pAlto">Costo total alto desde ($)</label><input id="pAlto" type="number" min="0" step="1000">
+            <label for="pExcep">Stock bajo: costo mayor a ($)</label><input id="pExcep" type="number" min="0" step="1000">
+            <label for="pAlta">Prioridad alta desde ($)</label><input id="pAlta" type="number" min="0" step="1000">
+            <label for="pCrit">Prioridad crítica desde ($)</label><input id="pCrit" type="number" min="0" step="1000">
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+            <span class="hint">Se excluye siempre “Sin stock”.</span>
+            <button type="button" class="btn" id="pReset">Restablecer</button>
+          </div>
+        </section>
+        <div class="go">
+          <button type="button" class="primary" id="genBtn">
+            <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2v9m0 0l-3.5-3.5M9 11l3.5-3.5M3 13.5V16h12v-2.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+            <span>Descargar Excel</span>
+          </button>
+          <div class="msg" id="genMsg"></div>
+        </div>
+      </aside>
+
+      <main class="results" id="results">
+        <div class="kpis">
+          <div class="kpi"><span class="k">Productos a revisar</span><span class="v" id="kN">—</span><span class="s" id="kNs"></span></div>
+          <div class="kpi"><span class="k">Costo inmovilizado</span><span class="v" id="kCt">—</span><span class="s" id="kCts"></span></div>
+          <div class="kpi"><span class="k">% del inventario</span><span class="v" id="kPct">—</span><span class="s" id="kPcts"></span></div>
+          <div class="kpi"><span class="k">Sin ventas en 4 sem.</span><span class="v" id="kZ">—</span><span class="s" id="kZs"></span></div>
+        </div>
+        <section class="panel">
+          <div class="panel-h"><h3>Por prioridad</h3><span class="hint">Ancho de cada tramo = costo inmovilizado</span></div>
+          <div class="bar" id="prioBar" role="img" aria-label="Distribución del costo inmovilizado por prioridad"></div>
+          <div class="legend" id="prioLegend"></div>
+        </section>
+        <section class="panel">
+          <div class="panel-h"><h3>Por marca</h3><span class="hint">Barra = % del inventario de la marca que está en revisión</span></div>
+          <div class="scroll"><table class="t" id="brandTab"></table></div>
+        </section>
+        <section class="panel">
+          <div class="panel-h"><h3>Productos a revisar</h3><span class="hint" id="prodHint"></span></div>
+          <div class="scroll"><table class="t" id="prodTab"></table></div>
+          <button type="button" class="btn more" id="moreBtn" hidden></button>
+        </section>
+      </main>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js" integrity="sha384-Pqp51FUN2/qzfxZxBCtF0stpc9ONI6MYZpVqmo8m20SoaQCzf+arZvACkLkirlPz" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<script>
+(function (root) {
+  'use strict';
+
+  // Columnas requeridas: encabezado esperado (fila 3) y letra esperada.
+  var COLS = [
+    { k: 'id',     h: 'id_producto',              L: 'A'  },
+    { k: 'marca',  h: 'marca',                    L: 'B'  },
+    { k: 'estado', h: 'estado',                   L: 'C'  },
+    { k: 'desc',   h: 'descripcion',              L: 'D'  },
+    { k: 'w4',     h: 'U4S_4_cantidad',           L: 'W'  },
+    { k: 'w3',     h: 'U4S_3_cantidad',           L: 'X'  },
+    { k: 'w2',     h: 'U4S_2_cantidad',           L: 'Y'  },
+    { k: 'w1',     h: 'U4S_1_cantidad',           L: 'Z'  },
+    { k: 'u4s',    h: 'U4S_cantidad',             L: 'AE' },
+    { k: 'stock',  h: 'stock_actual',             L: 'AG' },
+    { k: 'cu',     h: 'costo_unitario_actual',    L: 'AH' },
+    { k: 'jd',     h: 'JD',                       L: 'AI' },
+    { k: 'ct',     h: 'costo_total_actual',       L: 'AJ' },
+    { k: 'sp',     h: 'semanas_proyectadas',      L: 'AM' },
+    { k: 'clasif', h: 'clasificación_inventario', L: 'AN' }
+  ];
+  var LAST_COL = 40; // AN
+  var PRIOS = ['1-Crítica', '2-Alta', '3-Media', '4-Stock bajo'];
+  var DEFAULTS = { alto: 3137056, ventas: 5, alta: 5000000, critica: 10000000, stockMin: 10, excep: 2000000 };
+
+  function colLetter(n) { var s = ''; while (n > 0) { var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
+  function colIndex(L) { var n = 0; for (var i = 0; i < L.length; i++) n = n * 26 + (L.charCodeAt(i) - 64); return n; }
+  function norm(s) { return String(s == null ? '' : s).replace(/\s+/g, ' ').trim().toLowerCase(); }
+
+  // Valor plano de una celda de ExcelJS (fórmulas, texto enriquecido, enlaces, errores).
+  function cellVal(v) {
+    if (v == null) return null;
+    if (typeof v === 'object') {
+      if (v instanceof Date) return v;
+      if ('result' in v) return cellVal(v.result);
+      if (v.richText) return v.richText.map(function (t) { return t.text; }).join('');
+      if ('text' in v) return v.text;
+      if ('error' in v) return null;
+      if ('formula' in v || 'sharedFormula' in v) return null;
+    }
+    return v;
+  }
+  function num(v) {
+    if (v == null || v === '') return 0;
+    if (typeof v === 'number') return isFinite(v) ? v : 0;
+    var n = parseFloat(String(v).replace(/[^0-9.\-]/g, ''));
+    return isFinite(n) ? n : 0;
+  }
+  function numOrNull(v) { if (v == null || v === '') return null; var n = num(v); return n; }
+  function str(v) { if (v == null) return ''; return String(v).trim(); }
+
+  // Lee una hoja (getter getCell(row, col) -> valor plano). Busca la fila de títulos en las filas 1-5.
+  function parseGrid(getCell, maxRow) {
+    var headerRow = 0, warnings = [], mapping = [];
+    for (var r = 1; r <= Math.min(5, maxRow); r++) {
+      if (norm(getCell(r, 1)) === 'id_producto') { headerRow = r; break; }
+    }
+    if (!headerRow) headerRow = 3;
+    var headers = {};
+    for (var c = 1; c <= LAST_COL; c++) {
+      var h = norm(getCell(headerRow, c));
+      if (h && !(h in headers)) headers[h] = c;
+    }
+    var pos = {}, missing = [];
+    COLS.forEach(function (col) {
+      var expected = colIndex(col.L);
+      var found = null;
+      if (norm(getCell(headerRow, expected)) === norm(col.h)) found = expected;
+      else if (norm(col.h) in headers) found = headers[norm(col.h)];
+      var status = found === expected ? 'ok' : (found ? 'movida' : 'falta');
+      if (!found) missing.push(col);
+      pos[col.k] = found;
+      mapping.push({ k: col.k, h: col.h, expected: col.L, found: found ? colLetter(found) : null, status: status });
+    });
+    var rows = [];
+    if (!missing.length) {
+      for (var i = headerRow + 1; i <= maxRow; i++) {
+        var id = str(getCell(i, pos.id)), marca = str(getCell(i, pos.marca));
+        if (!id && !marca) continue;
+        rows.push({
+          id: id, marca: marca || '(sin marca)', estado: str(getCell(i, pos.estado)), desc: str(getCell(i, pos.desc)),
+          w4: num(getCell(i, pos.w4)), w3: num(getCell(i, pos.w3)), w2: num(getCell(i, pos.w2)), w1: num(getCell(i, pos.w1)),
+          u4s: num(getCell(i, pos.u4s)), stock: num(getCell(i, pos.stock)), cu: numOrNull(getCell(i, pos.cu)),
+          jd: str(getCell(i, pos.jd)) || null, ct: num(getCell(i, pos.ct)), sp: numOrNull(getCell(i, pos.sp)),
+          clasif: str(getCell(i, pos.clasif))
+        });
+      }
+    }
+    if (headerRow !== 3) warnings.push('Los títulos se encontraron en la fila ' + headerRow + ' (se esperaban en la fila 3).');
+    return { headerRow: headerRow, mapping: mapping, missing: missing, rows: rows, warnings: warnings };
+  }
+
+  function parseExcelJS(wb) {
+    var ws = null;
+    wb.eachSheet(function (s) { if (!ws && s.actualRowCount > 0) ws = s; });
+    if (!ws) return { headerRow: 0, mapping: [], missing: COLS.slice(), rows: [], warnings: ['El archivo no tiene hojas con datos.'] };
+    var res = parseGrid(function (r, c) { return cellVal(ws.getRow(r).getCell(c).value); }, ws.rowCount);
+    res.sheet = ws.name;
+    return res;
+  }
+
+  function fromCompact(arr) {
+    return arr.map(function (a) {
+      return { id: str(a[0]), marca: str(a[1]) || '(sin marca)', estado: str(a[2]), desc: str(a[3]), w4: num(a[4]), w3: num(a[5]), w2: num(a[6]), w1: num(a[7]),
+        u4s: num(a[8]), stock: num(a[9]), cu: numOrNull(a[10]), jd: a[11] ? String(a[11]) : null, ct: num(a[12]), sp: numOrNull(a[13]), clasif: str(a[14]) };
+    });
+  }
+
+  function brandStats(rows) {
+    var m = {};
+    rows.forEach(function (r) { var b = m[r.marca] || (m[r.marca] = { marca: r.marca, n: 0, ct: 0 }); b.n++; b.ct += r.ct; });
+    return Object.keys(m).map(function (k) { return m[k]; }).sort(function (a, b) { return b.ct - a.ct; });
+  }
+
+  function evalRow(r, P) {
+    var maxW = Math.max(r.w4, r.w3, r.w2, r.w1);
+    var lowSales = maxW < P.ventas;
+    var costOk = r.stock > P.stockMin ? r.ct >= P.alto : r.ct > P.excep;
+    var review = lowSales && costOk && r.ct > 0 && r.clasif !== 'Sin stock';
+    var prio = '';
+    if (review) prio = r.stock <= P.stockMin ? PRIOS[3] : (r.ct >= P.critica ? PRIOS[0] : (r.ct >= P.alta ? PRIOS[1] : PRIOS[2]));
+    return { maxW: maxW, lowSales: lowSales, costOk: costOk, review: review, prio: prio };
+  }
+
+  function action(r, P, dupSet) {
+    var a;
+    var weeks = [r.w4, r.w3, r.w2, r.w1];
+    if (r.stock <= P.stockMin) a = 'Pocas unidades pero de alto valor: revisar precio y publicación, o liquidar antes de que pierda vigencia';
+    else if (r.u4s <= 0) a = 'Sin ventas en 4 semanas: revisar publicación/precio, liquidar o negociar devolución con proveedor';
+    else if (r.sp != null && r.sp > 100) a = 'Rota muy lento (más de 100 semanas de stock): promoción agresiva, combos o bajar precio';
+    else if (r.sp != null && r.sp > 52) a = 'Más de 1 año de stock: activar Ads/promoción y frenar recompra';
+    else a = 'Venta baja: revisar posicionamiento y frenar recompra hasta que rote';
+    if (weeks.some(function (w) { return w < 0; })) a += ' · Ojo: tiene cantidades negativas (devoluciones)';
+    if (dupSet && dupSet.has(norm(r.desc))) a += ' · Posible duplicado: misma descripción con otro código (verificar el stock)';
+    return a;
+  }
+
+  function analyze(allRows, brands, P) {
+    var set = new Set(brands);
+    var base = allRows.filter(function (r) { return set.has(r.marca); });
+    var descCount = new Map();
+    allRows.forEach(function (r) { if (r.stock > 0 && r.desc) { var d = norm(r.desc); descCount.set(d, (descCount.get(d) || 0) + 1); } });
+    var dupSet = new Set(); descCount.forEach(function (n, d) { if (n > 1) dupSet.add(d); });
+    var total = 0, review = [];
+    base.forEach(function (r) {
+      total += r.ct;
+      var e = evalRow(r, P);
+      r._e = e;
+      if (e.review) review.push(r);
+    });
+    review.sort(function (a, b) { return b.ct - a.ct; });
+    review.forEach(function (r) { r._action = action(r, P, dupSet); });
+    var byPrio = PRIOS.map(function (p) { return { prio: p, n: 0, ct: 0 }; });
+    var byBrand = {};
+    var sum = { n: review.length, ct: 0, stock: 0, u4s: 0, zero: 0 };
+    review.forEach(function (r) {
+      var bp = byPrio[PRIOS.indexOf(r._e.prio)]; bp.n++; bp.ct += r.ct;
+      sum.ct += r.ct; sum.stock += r.stock; sum.u4s += r.u4s; if (r.u4s <= 0) sum.zero++;
+      var b = byBrand[r.marca] || (byBrand[r.marca] = { marca: r.marca, n: 0, ct: 0 }); b.n++; b.ct += r.ct;
+    });
+    var brandTotals = {}; base.forEach(function (r) { brandTotals[r.marca] = (brandTotals[r.marca] || 0) + r.ct; });
+    var brandRows = brands.map(function (m) { var b = byBrand[m] || { marca: m, n: 0, ct: 0 }; b.total = brandTotals[m] || 0; return b; })
+      .sort(function (a, b) { return b.ct - a.ct || b.total - a.total; });
+    return { base: base, review: review, total: total, byPrio: byPrio, byBrand: brandRows, sum: sum };
+  }
+
+  // ---------------- Excel de salida ----------------
+  function buildWorkbook(ExcelJS, res, P, meta) {
+    var wb = new ExcelJS.Workbook();
+    wb.creator = 'Revisión de Rotación JD';
+    wb.created = new Date();
+    wb.calcProperties.fullCalcOnLoad = true;
+
+    var MON = '$#,##0;($#,##0);-';
+    var AR = { name: 'Arial', size: 10 };
+    var B = { name: 'Arial', size: 10, bold: true };
+    var H = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+    var fill = function (hex) { return { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + hex } }; };
+    var HF = fill('1F3864');
+    var PF = { '1-Crítica': 'F8CBAD', '2-Alta': 'FFE699', '3-Media': 'E2EFDA', '4-Stock bajo': 'DDEBF7' };
+    var bd = { bottom: { style: 'thin', color: { argb: 'FFD9D9D9' } } };
+    var PQ = "'Parámetros'!";
+
+    var rs = wb.addWorksheet('Resumen', { views: [{ showGridLines: false }] });
+    var ar = wb.addWorksheet('A revisar');
+    var bs = wb.addWorksheet('Base');
+    var pm = wb.addWorksheet('Parámetros', { views: [{ showGridLines: false }] });
+
+    function put(ws, addr, value, font, numFmt) {
+      var c = ws.getCell(addr); c.value = value; if (font) c.font = font; if (numFmt) c.numFmt = numFmt; return c;
+    }
+    function F(formula, result) { return { formula: formula, result: result }; }
+    function hdr(ws, row, labels) {
+      labels.forEach(function (h, j) { var c = ws.getCell(row, j + 1); c.value = h; c.font = H; c.fill = HF; c.alignment = { wrapText: true, vertical: 'middle' }; });
+    }
+    function money(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
+
+    // ---- Parámetros
+    put(pm, 'A1', 'Parámetros del análisis', { name: 'Arial', size: 12, bold: true });
+    var prm = [
+      ['Umbral costo total "alto" ($)', P.alto, 'Costo total mínimo para productos con stock mayor al stock mínimo. Editable.', MON],
+      ['Ventas semanales máximas (unidades, menor que)', P.ventas, 'Las 4 semanas U4S deben tener menos de esta cantidad.', '0'],
+      ['Prioridad ALTA desde ($)', P.alta, 'Corte de prioridad. Editable.', MON],
+      ['Prioridad CRÍTICA desde ($)', P.critica, 'Corte de prioridad. Editable.', MON],
+      ['Stock mínimo (unidades, mayor que)', P.stockMin, 'Con stock mayor a este valor se usa el umbral de costo alto...', '0'],
+      ['Excepción stock bajo: costo total mayor que ($)', P.excep, '...con stock igual o menor, el producto entra si su costo total supera este valor.', MON]
+    ];
+    prm.forEach(function (p, i) {
+      var r = 3 + i;
+      put(pm, 'A' + r, p[0], AR);
+      var c = put(pm, 'B' + r, p[1], { name: 'Arial', size: 10, color: { argb: 'FF0000FF' } }, p[3]); c.fill = fill('FFFF00');
+      put(pm, 'C' + r, p[2], { name: 'Arial', size: 9, italic: true, color: { argb: 'FF595959' } });
+    });
+    put(pm, 'A10', 'Celdas amarillas = editables. Resumen y Base se recalculan al cambiarlas; el listado ordenado de "A revisar" es una foto del momento en que se generó.', { name: 'Arial', size: 9, italic: true });
+    put(pm, 'A11', 'Se excluyen siempre los productos con clasificación_inventario = "Sin stock".', { name: 'Arial', size: 9, italic: true });
+    put(pm, 'A12', 'Archivo de origen: ' + meta.fileName + ' · Generado: ' + meta.generated, { name: 'Arial', size: 9, italic: true });
+    pm.getColumn(1).width = 48; pm.getColumn(2).width = 16; pm.getColumn(3).width = 95;
+
+    // ---- Base
+    var bh = ['id_producto', 'marca', 'descripcion', 'estado', 'clasificación_inventario', 'U4S_4_cantidad', 'U4S_3_cantidad', 'U4S_2_cantidad', 'U4S_1_cantidad',
+      'U4S_cantidad', 'stock_actual', 'costo_unitario_actual', 'costo_total_actual', 'semanas_proyectadas', 'Máx. semanal U4S', 'Ventas bajas (<umbral)',
+      'Cumple costo según stock', 'A revisar', 'Prioridad', 'JD'];
+    hdr(bs, 1, bh);
+    var last = res.base.length + 1;
+    res.base.forEach(function (r, k) {
+      var i = k + 2, e = r._e;
+      var vals = [r.id, r.marca, r.desc, r.estado, r.clasif, r.w4, r.w3, r.w2, r.w1, r.u4s, r.stock, r.cu, r.ct, r.sp];
+      var row = bs.getRow(i);
+      vals.forEach(function (v, j) { var c = row.getCell(j + 1); c.value = v; c.font = AR; });
+      row.getCell(12).numFmt = MON; row.getCell(13).numFmt = MON; row.getCell(14).numFmt = '0.0';
+      row.getCell(15).value = F('MAX(F' + i + ':I' + i + ')', e.maxW);
+      row.getCell(16).value = F('IF(O' + i + '<' + PQ + '$B$4,"Sí","No")', e.lowSales ? 'Sí' : 'No');
+      row.getCell(17).value = F('IF(K' + i + '>' + PQ + '$B$7,IF(M' + i + '>=' + PQ + '$B$3,"Sí","No"),IF(M' + i + '>' + PQ + '$B$8,"Sí","No"))', e.costOk ? 'Sí' : 'No');
+      row.getCell(18).value = F('IF(AND(P' + i + '="Sí",Q' + i + '="Sí",M' + i + '>0,E' + i + '<>"Sin stock"),"Sí","No")', e.review ? 'Sí' : 'No');
+      row.getCell(19).value = F('IF(R' + i + '="Sí",IF(K' + i + '<=' + PQ + '$B$7,"4-Stock bajo",IF(M' + i + '>=' + PQ + '$B$6,"1-Crítica",IF(M' + i + '>=' + PQ + '$B$5,"2-Alta","3-Media"))),"")', e.prio);
+      row.getCell(20).value = r.jd;
+      for (var j = 15; j <= 20; j++) row.getCell(j).font = AR;
+    });
+    [17, 11, 60, 9, 14, 8, 8, 8, 8, 9, 9, 13, 15, 10, 10, 11, 11, 9, 13, 13].forEach(function (w, j) { bs.getColumn(j + 1).width = w; });
+    bs.views = [{ state: 'frozen', xSplit: 3, ySplit: 1 }];
+    if (res.base.length) {
+      bs.autoFilter = 'A1:T' + last;
+      bs.addConditionalFormatting({ ref: 'A2:T' + last, rules: [{ type: 'expression', priority: 1, formulae: ['$R2="Sí"'], style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFFCE4D6' } } } }] });
+    }
+    var SUMBASE = 'SUM(Base!$M$2:$M$' + last + ')';
+
+    // ---- A revisar
+    put(ar, 'A1', 'Productos a revisar: menos de ' + P.ventas + ' unidades vendidas en CADA una de las últimas 4 semanas; stock > ' + P.stockMin +
+      ' con costo total ≥ ' + money(P.alto) + ', o stock ≤ ' + P.stockMin + ' con costo total > ' + money(P.excep) + '; sin "Sin stock"', { name: 'Arial', size: 12, bold: true });
+    put(ar, 'A2', 'Fuente: ' + meta.fileName + ' · Marcas: ' + meta.brandLabel + '. Ordenado de mayor a menor costo total inmovilizado. La acción sugerida es orientativa.', { name: 'Arial', size: 9, italic: true });
+    var oc = ['#', 'Prioridad', 'id_producto', 'marca', 'descripcion', 'clasificación_inventario', 'U4S_4_cantidad', 'U4S_3_cantidad', 'U4S_2_cantidad', 'U4S_1_cantidad',
+      'U4S_cantidad', 'Semanas sin venta (de 4)', 'stock_actual', 'costo_unitario_actual', 'JD', 'costo_total_actual', '% del inventario total', '% acumulado', 'semanas_proyectadas', 'Acción sugerida'];
+    var R0 = 4;
+    hdr(ar, R0, oc); ar.getRow(R0).height = 42;
+    var acc = 0;
+    res.review.forEach(function (r, k) {
+      var i = R0 + 1 + k;
+      acc += r.ct;
+      var zeroW = [r.w4, r.w3, r.w2, r.w1].filter(function (w) { return w <= 0; }).length;
+      var row = ar.getRow(i);
+      var vals = [k + 1, r._e.prio, r.id, r.marca, r.desc, r.clasif, r.w4, r.w3, r.w2, r.w1, r.u4s,
+        F('COUNTIF(G' + i + ':J' + i + ',"<=0")', zeroW), r.stock, r.cu, r.jd, r.ct,
+        F('P' + i + '/' + SUMBASE, res.total ? r.ct / res.total : 0),
+        F('SUM($P$' + (R0 + 1) + ':P' + i + ')/' + SUMBASE, res.total ? acc / res.total : 0),
+        r.sp, r._action];
+      vals.forEach(function (v, j) { var c = row.getCell(j + 1); c.value = v; c.font = AR; c.border = bd; });
+      row.getCell(20).font = { name: 'Arial', size: 9 };
+      row.getCell(14).numFmt = MON; row.getCell(15).numFmt = '@'; row.getCell(15).alignment = { horizontal: 'center' };
+      row.getCell(16).numFmt = MON; row.getCell(17).numFmt = '0.0%'; row.getCell(18).numFmt = '0.0%'; row.getCell(19).numFmt = '0';
+      row.getCell(2).fill = fill(PF[r._e.prio]);
+    });
+    var L = R0 + res.review.length, t = L + 1;
+    if (res.review.length) {
+      put(ar, 'E' + t, 'TOTAL', B);
+      put(ar, 'K' + t, F('SUM(K' + (R0 + 1) + ':K' + L + ')', res.sum.u4s), B);
+      put(ar, 'M' + t, F('SUM(M' + (R0 + 1) + ':M' + L + ')', res.sum.stock), B, '#,##0');
+      put(ar, 'P' + t, F('SUM(P' + (R0 + 1) + ':P' + L + ')', res.sum.ct), B, MON);
+      put(ar, 'Q' + t, F('P' + t + '/' + SUMBASE, res.total ? res.sum.ct / res.total : 0), B, '0.0%');
+      ar.autoFilter = 'A' + R0 + ':T' + L;
+    } else {
+      put(ar, 'A5', 'Ningún producto cumple los criterios con las marcas seleccionadas.', AR);
+    }
+    [5, 12, 17, 11, 55, 13, 7, 7, 7, 7, 8, 9, 9, 13, 13, 15, 10, 10, 11, 80].forEach(function (w, j) { ar.getColumn(j + 1).width = w; });
+    ar.views = [{ state: 'frozen', xSplit: 5, ySplit: R0 }];
+
+    // ---- Resumen
+    put(rs, 'A1', 'Resumen — productos con costo alto y venta baja', { name: 'Arial', size: 13, bold: true });
+    put(rs, 'A2', 'Criterio: U4S_4, U4S_3, U4S_2 y U4S_1 todas < ' + P.ventas + ' unidades; stock > ' + P.stockMin + ' y costo ≥ umbral alto, o stock ≤ ' + P.stockMin +
+      ' y costo > ' + money(P.excep) + '; se excluye "Sin stock" (hoja Parámetros).', { name: 'Arial', size: 9, italic: true });
+    var bl = last;
+    var kp = [
+      ['Valor total del inventario (marcas seleccionadas)', F('SUM(Base!M2:M' + bl + ')', res.total), MON],
+      ['Productos a revisar', F('COUNTIF(Base!R2:R' + bl + ',"Sí")', res.sum.n), '0'],
+      ['Costo inmovilizado en productos a revisar', F('SUMIF(Base!R2:R' + bl + ',"Sí",Base!M2:M' + bl + ')', res.sum.ct), MON],
+      ['% del inventario total', F('IFERROR(B6/B4,0)', res.total ? res.sum.ct / res.total : 0), '0.0%'],
+      ['Unidades en stock de esos productos', F('SUMIF(Base!R2:R' + bl + ',"Sí",Base!K2:K' + bl + ')', res.sum.stock), '#,##0'],
+      ['Unidades vendidas por esos productos en 4 semanas', F('SUMIF(Base!R2:R' + bl + ',"Sí",Base!J2:J' + bl + ')', res.sum.u4s), '#,##0'],
+      ['…de ellos, sin ninguna venta en 4 semanas', F('COUNTIFS(Base!R2:R' + bl + ',"Sí",Base!J2:J' + bl + ',"<=0")', res.sum.zero), '0']
+    ];
+    kp.forEach(function (k, i) { put(rs, 'A' + (4 + i), k[0], AR); put(rs, 'B' + (4 + i), k[1], B, k[2]); });
+    put(rs, 'A11', 'Marcas incluidas: ' + meta.brandList, { name: 'Arial', size: 9, italic: true });
+    put(rs, 'A12', 'Archivo de origen: ' + meta.fileName, { name: 'Arial', size: 9, italic: true });
+    var r = 14;
+    hdr(rs, r, ['Prioridad', 'Corte', 'Productos', 'Costo inmovilizado', '% inventario']);
+    var cortes = [
+      ['=\"≥ \"&TEXT(' + PQ + 'B6,\"$#,##0\")', '≥ ' + money(P.critica)],
+      ['TEXT(' + PQ + 'B5,"$#,##0")&" – "&TEXT(' + PQ + 'B6,"$#,##0")', money(P.alta) + ' – ' + money(P.critica)],
+      ['TEXT(' + PQ + 'B3,"$#,##0")&" – "&TEXT(' + PQ + 'B5,"$#,##0")', money(P.alto) + ' – ' + money(P.alta)],
+      ['"Stock ≤ "&' + PQ + 'B7&" y > "&TEXT(' + PQ + 'B8,"$#,##0")', 'Stock ≤ ' + P.stockMin + ' y > ' + money(P.excep)]
+    ];
+    cortes[0][0] = '"≥ "&TEXT(' + PQ + 'B6,"$#,##0")';
+    PRIOS.forEach(function (p, i) {
+      var k = r + 1 + i, bp = res.byPrio[i];
+      var c = put(rs, 'A' + k, p, AR); c.fill = fill(PF[p]);
+      put(rs, 'B' + k, F(cortes[i][0], cortes[i][1]), AR);
+      put(rs, 'C' + k, F('COUNTIF(Base!S2:S' + bl + ',A' + k + ')', bp.n), AR);
+      put(rs, 'D' + k, F('SUMIF(Base!S2:S' + bl + ',A' + k + ',Base!M2:M' + bl + ')', bp.ct), AR, MON);
+      put(rs, 'E' + k, F('IFERROR(D' + k + '/$B$4,0)', res.total ? bp.ct / res.total : 0), AR, '0.0%');
+    });
+    var tk = r + 5;
+    put(rs, 'A' + tk, 'Total', B);
+    put(rs, 'C' + tk, F('SUM(C' + (r + 1) + ':C' + (r + 4) + ')', res.sum.n), B);
+    put(rs, 'D' + tk, F('SUM(D' + (r + 1) + ':D' + (r + 4) + ')', res.sum.ct), B, MON);
+    put(rs, 'E' + tk, F('IFERROR(D' + tk + '/$B$4,0)', res.total ? res.sum.ct / res.total : 0), B, '0.0%');
+    r = tk + 3;
+    hdr(rs, r, ['Marca', 'Productos a revisar', 'Costo inmovilizado', '% inventario de la marca']);
+    res.byBrand.forEach(function (b, i) {
+      var k = r + 1 + i;
+      put(rs, 'A' + k, b.marca, AR);
+      put(rs, 'B' + k, F('COUNTIFS(Base!B2:B' + bl + ',A' + k + ',Base!R2:R' + bl + ',"Sí")', b.n), AR);
+      put(rs, 'C' + k, F('SUMIFS(Base!M2:M' + bl + ',Base!B2:B' + bl + ',A' + k + ',Base!R2:R' + bl + ',"Sí")', b.ct), AR, MON);
+      put(rs, 'D' + k, F('IFERROR(C' + k + '/SUMIF(Base!B2:B' + bl + ',A' + k + ',Base!M2:M' + bl + '),0)', b.total ? b.ct / b.total : 0), AR, '0.0%');
+    });
+    rs.getColumn(1).width = 50; rs.getColumn(2).width = 28; rs.getColumn(3).width = 20; rs.getColumn(4).width = 22; rs.getColumn(5).width = 14;
+    return wb;
+  }
+
+  var api = { COLS: COLS, PRIOS: PRIOS, DEFAULTS: DEFAULTS, parseGrid: parseGrid, parseExcelJS: parseExcelJS, fromCompact: fromCompact,
+    brandStats: brandStats, analyze: analyze, evalRow: evalRow, buildWorkbook: buildWorkbook, cellVal: cellVal };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Core = api;
+})(typeof window !== 'undefined' ? window : this);
+
+</script>
+<script>
+(function () {
+  'use strict';
+  var C = window.Core;
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { rows: [], fileName: '', fileDate: '', brands: [], selected: new Set(), P: Object.assign({}, C.DEFAULTS), res: null, showAll: false };
+
+  // Privacidad: nada se guarda en el navegador (sin almacenamiento local, cookies ni envíos de red).
+  function save() {}
+
+  var nf0 = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
+  var nf1 = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  function money(n) { return '$' + nf0.format(Math.round(n)); }
+  function mill(n) { return '$' + nf1.format(n / 1e6) + ' M'; }
+  function pct(n) { return nf1.format(n * 100) + '%'; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  var PCLS = { '1-Crítica': 'p1', '2-Alta': 'p2', '3-Media': 'p3', '4-Stock bajo': 'p4' };
+  var PVAR = { '1-Crítica': '--crit', '2-Alta': '--alta', '3-Media': '--media', '4-Stock bajo': '--bajo' };
+  var PNAME = { '1-Crítica': 'Crítica', '2-Alta': 'Alta', '3-Media': 'Media', '4-Stock bajo': 'Stock bajo' };
+
+  // ---------- navegación entre pantallas
+  function go(n) {
+    [1, 2, 3].forEach(function (i) { $('scr' + i).hidden = i !== n; });
+    Array.prototype.forEach.call($('steps').children, function (li) {
+      var s = +li.getAttribute('data-s');
+      li.className = s === n ? 'on' : (s < n ? 'done' : '');
+      if (s === n) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
+    });
+    openMs(false);
+    window.scrollTo(0, 0);
+  }
+
+  // ---------- pantalla 1: carga
+  function renderMapping(mapping) {
+    if (!mapping) { $('colsBox').hidden = true; return; }
+    $('colsBox').hidden = false;
+    var ok = mapping.filter(function (m) { return m.found; }).length;
+    $('colsSum').textContent = 'Columnas usadas: ' + ok + ' de ' + mapping.length + ' encontradas';
+    $('colTab').innerHTML = mapping.map(function (m) {
+      var lab = m.status === 'ok' ? 'OK' : (m.status === 'movida' ? 'En ' + m.found : 'Falta');
+      return '<tr><td>' + esc(m.expected) + '</td><td>' + esc(m.h) + '</td><td style="text-align:right"><span class="st ' + m.status + '">' + lab + '</span></td></tr>';
+    }).join('');
+  }
+
+  function setStatus(html) { $('fileStatus').innerHTML = html; }
+
+  function readFile(file) {
+    if (!file) return;
+    if (!/\.xls[xm]$/i.test(file.name)) { setStatus('<span class="err">El archivo debe ser un Excel .xlsx. Si está en .xls, ábrelo en Excel, guárdalo como .xlsx y vuelve a cargarlo.</span>'); return; }
+    if (!window.ExcelJS) { setStatus('<span class="err">No se pudo cargar el lector de Excel. Revisa la conexión a internet y recarga la página.</span>'); return; }
+    setStatus('<span>Analizando ' + esc(file.name) + '…</span>');
+    $('colsBox').hidden = true;
+    $('app').classList.add('loading');
+    file.arrayBuffer().then(function (buf) {
+      var wb = new ExcelJS.Workbook();
+      return wb.xlsx.load(buf).then(function () { return C.parseExcelJS(wb); });
+    }).then(function (p) {
+      $('app').classList.remove('loading');
+      renderMapping(p.mapping);
+      if (p.missing.length) {
+        $('colsBox').open = true;
+        setStatus('<span class="err">No se encontraron estas columnas en la fila de títulos: ' + p.missing.map(function (c) { return esc(c.h) + ' (' + c.L + ')'; }).join(', ') + '. Revisa que el archivo tenga la estructura esperada.</span>');
+        return;
+      }
+      if (!p.rows.length) { setStatus('<span class="err">El archivo no tiene productos debajo de la fila de títulos.</span>'); return; }
+      var st = '<span class="ok">✓ ' + esc(file.name) + ': ' + nf0.format(p.rows.length) + ' productos leídos</span>';
+      p.warnings.forEach(function (w) { st += '<span class="wrn">' + esc(w) + '</span>'; });
+      setStatus(st);
+      loadData(p.rows, file.name);
+      go(2);
+    }).catch(function (e) {
+      $('app').classList.remove('loading');
+      setStatus('<span class="err">No se pudo leer el archivo (' + esc(e && e.message || e) + '). Verifica que sea un .xlsx válido y que no tenga contraseña.</span>');
+    });
+  }
+
+  function loadData(rows, fileName) {
+    state.rows = rows;
+    state.fileName = fileName;
+    var m = /(\d{4}-\d{2}-\d{2})/.exec(fileName);
+    state.fileDate = m ? m[1] : new Date().toISOString().slice(0, 10);
+    state.brands = C.brandStats(rows);
+    var names = new Set(state.brands.map(function (b) { return b.marca; }));
+    var keep = Array.from(state.selected).filter(function (b) { return names.has(b); });
+    state.selected = new Set(keep);
+    computeReviewByBrand();
+    $('fileName2').textContent = fileName;
+    $('fileName3').textContent = fileName;
+    var tot = rows.reduce(function (a, r) { return a + r.ct; }, 0);
+    $('fileCount').textContent = nf0.format(rows.length) + ' productos · ' + state.brands.length + ' marcas · ' + mill(tot) + ' en inventario';
+    $('allCount').textContent = '(' + state.brands.length + ')';
+    $('msSearch').value = '';
+    renderBrands();
+  }
+
+  var drop = $('drop'), fi = $('fileInput');
+  drop.addEventListener('click', function () { fi.click(); });
+  drop.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fi.click(); } });
+  fi.addEventListener('change', function () { readFile(fi.files[0]); fi.value = ''; });
+  ['dragenter', 'dragover'].forEach(function (t) { drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+  ['dragleave', 'drop'].forEach(function (t) { drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+  drop.addEventListener('drop', function (e) { readFile(e.dataTransfer && e.dataTransfer.files[0]); });
+  // evita que soltar un archivo fuera del recuadro lo abra en el navegador
+  ['dragover', 'drop'].forEach(function (t) { window.addEventListener(t, function (e) { e.preventDefault(); }); });
+
+  // ---------- pantalla 2: marcas
+  var reviewByBrand = {};
+  function computeReviewByBrand() {
+    reviewByBrand = {};
+    state.rows.forEach(function (r) { if (C.evalRow(r, state.P).review) reviewByBrand[r.marca] = (reviewByBrand[r.marca] || 0) + 1; });
+  }
+  function visibleBrands() { var q = $('msSearch').value.trim().toLowerCase(); return state.brands.filter(function (b) { return !q || b.marca.toLowerCase().indexOf(q) >= 0; }); }
+
+
+  // ---------- grupos predeterminados de marcas
+  var PRESET_KEY = 'jdRotacion.grupos.v1';
+  var PRESET_DEFAULTS = [
+    { id: 'ronal', name: 'Marcas Ronal', brands: ['JBL', 'FORZA', 'BELKIN', 'TECHGO', 'ANKER', 'TARGUS', 'SOUNDCORE'] },
+    { id: 'diana', name: 'Marcas Diana', brands: ['TP-LINK', 'MERCUSYS', 'KLIP XTREME', 'ADATA', 'XPG', 'EZVIZ', 'XIAOMI', 'SANDISK'] },
+    { id: 'harry', name: 'Marcas Harry', brands: ['REDRAGON', 'T-DAGGER', 'RAZER', 'PRIMUS', 'XTECH', 'NEXXT', 'GENIUS'] }
+  ];
+  function clonePresets(p) { return p.map(function (x) { return { id: x.id, name: x.name, brands: x.brands.slice() }; }); }
+  function loadPresets() {
+    var out = clonePresets(PRESET_DEFAULTS);
+    try {
+      var s = JSON.parse(localStorage.getItem(PRESET_KEY) || 'null');
+      if (s && typeof s === 'object') out.forEach(function (p) {
+        if (Array.isArray(s[p.id])) p.brands = s[p.id].filter(function (b) { return typeof b === 'string' && b.trim(); }).map(function (b) { return b.trim().toUpperCase(); }).slice(0, 200);
+      });
+    } catch (e) {}
+    return out;
+  }
+  function savePresets() {
+    try { var o = {}; presets.forEach(function (p) { o[p.id] = p.brands; }); localStorage.setItem(PRESET_KEY, JSON.stringify(o)); } catch (e) {}
+  }
+  var presets = loadPresets(), editing = null;
+  function brandNames() { var s = new Set(); state.brands.forEach(function (b) { s.add(b.marca); }); return s; }
+  function renderPresets() {
+    var names = brandNames();
+    $('brandOptions').innerHTML = state.brands.map(function (b) { return '<option value="' + esc(b.marca) + '"></option>'; }).join('');
+    $('presets').innerHTML = presets.map(function (p) {
+      var present = p.brands.filter(function (b) { return names.has(b); });
+      var active = present.length > 0 && present.length === state.selected.size && present.every(function (b) { return state.selected.has(b); });
+      var ed = editing === p.id;
+      var chips = p.brands.map(function (b) {
+        var miss = !names.has(b);
+        return '<span class="pc' + (miss ? ' miss' : '') + '"' + (miss ? ' title="No está en este archivo"' : '') + '>' + esc(b) +
+          (ed ? '<button type="button" aria-label="Quitar ' + esc(b) + ' de ' + esc(p.name) + '" data-rm="' + esc(b) + '" data-p="' + p.id + '">×</button>' : '') + '</span>';
+      }).join('') || '<span class="pnote">Sin marcas. Agrega una abajo.</span>';
+      var missN = p.brands.length - present.length;
+      var body = '<div class="ph"><strong>' + esc(p.name) + '</strong><span>' + p.brands.length + (p.brands.length === 1 ? ' marca' : ' marcas') + '</span></div><div class="pchips">' + chips + '</div>';
+      if (missN && !ed) body += '<span class="pnote">' + missN + (missN === 1 ? ' marca no aparece' : ' marcas no aparecen') + ' en este archivo.</span>';
+      if (ed) {
+        body += '<div class="padd"><input id="padd-' + p.id + '" list="brandOptions" placeholder="Nueva marca" aria-label="Agregar marca a ' + esc(p.name) + '" data-in="' + p.id + '">' +
+          '<button type="button" class="btn" data-add="' + p.id + '">Agregar</button></div>' +
+          '<div class="pact"><button type="button" class="btn solid" data-done="' + p.id + '">Listo</button><button type="button" class="btn" data-reset="' + p.id + '">Restablecer original</button></div>';
+      } else {
+        body += '<div class="pact"><button type="button" class="btn solid" data-use="' + p.id + '"' + (present.length ? '' : ' disabled') + '>' + (active ? 'Grupo seleccionado' : 'Usar este grupo') + '</button>' +
+          '<button type="button" class="btn" data-edit="' + p.id + '">Editar</button></div>';
+      }
+      return '<div class="preset' + (active ? ' active' : '') + '">' + body + '</div>';
+    }).join('');
+  }
+  function findPreset(id) { for (var i = 0; i < presets.length; i++) if (presets[i].id === id) return presets[i]; return null; }
+  function addToPreset(id) {
+    var inp = $('padd-' + id), p = findPreset(id); if (!inp || !p) return;
+    var v = inp.value.trim().toUpperCase();
+    if (v && p.brands.indexOf(v) < 0) { p.brands.push(v); savePresets(); }
+    renderPresets();
+    var again = $('padd-' + id); if (again) again.focus();
+  }
+  $('presets').addEventListener('click', function (e) {
+    var t = e.target.closest('button'); if (!t) return;
+    var id;
+    if ((id = t.getAttribute('data-use'))) {
+      var names = brandNames(), p = findPreset(id);
+      state.selected = new Set(p.brands.filter(function (b) { return names.has(b); }));
+      renderBrands();
+    } else if ((id = t.getAttribute('data-edit'))) { editing = id; renderPresets(); var i = $('padd-' + id); if (i) i.focus(); }
+    else if ((id = t.getAttribute('data-done'))) { editing = null; renderPresets(); }
+    else if ((id = t.getAttribute('data-add'))) addToPreset(id);
+    else if ((id = t.getAttribute('data-reset'))) {
+      var d = PRESET_DEFAULTS.filter(function (x) { return x.id === id; })[0]; findPreset(id).brands = d.brands.slice(); savePresets(); renderPresets();
+    } else if (t.hasAttribute('data-rm')) {
+      var pp = findPreset(t.getAttribute('data-p')), b = t.getAttribute('data-rm');
+      pp.brands = pp.brands.filter(function (x) { return x !== b; }); savePresets(); renderPresets();
+    }
+  });
+  $('presets').addEventListener('keydown', function (e) {
+    var id = e.target.getAttribute && e.target.getAttribute('data-in');
+    if (id && e.key === 'Enter') { e.preventDefault(); addToPreset(id); }
+  });
+
+  function renderBrands() {
+    var q = $('msSearch').value.trim();
+    var list = visibleBrands();
+    $('msList').innerHTML = list.length ? list.map(function (b) {
+      var on = state.selected.has(b.marca), rv = reviewByBrand[b.marca] || 0;
+      return '<label class="ms-item" role="option" aria-selected="' + on + '"><input type="checkbox" data-b="' + esc(b.marca) + '"' + (on ? ' checked' : '') + '>' +
+        '<span class="nm">' + esc(b.marca) + '</span><span class="mt">' + b.n + ' prod · ' + mill(b.ct) + (rv ? ' · <span class="rv">' + rv + ' a revisar</span>' : '') + '</span></label>';
+    }).join('') : '<div class="ms-empty">Ninguna marca coincide con “' + esc(q) + '”.</div>';
+    var n = state.selected.size, tot = state.brands.length, all = n === tot && tot > 0;
+    $('allBrands').checked = all;
+    $('allBrands').indeterminate = n > 0 && !all;
+    $('msLabel').textContent = n === 0 ? 'Selecciona una o más marcas' : (all ? 'Todas las marcas (' + tot + ')' : n === 1 ? Array.from(state.selected)[0] : n + ' marcas seleccionadas');
+    var sel = state.brands.filter(function (b) { return state.selected.has(b.marca); });
+    $('chips').innerHTML = (n > 0 && !all && n <= 20) ? sel.map(function (b) {
+      return '<span class="chip">' + esc(b.marca) + '<button type="button" aria-label="Quitar ' + esc(b.marca) + '" data-x="' + esc(b.marca) + '">×</button></span>';
+    }).join('') : '';
+    if (n === 0) $('selSum').textContent = 'Marca “Todas las marcas” o elige una o más en la lista.';
+    else {
+      var prods = 0, ct = 0, rv = 0;
+      sel.forEach(function (b) { prods += b.n; ct += b.ct; rv += reviewByBrand[b.marca] || 0; });
+      $('selSum').innerHTML = '<strong>' + n + (n === 1 ? ' marca' : ' marcas') + '</strong> · ' + nf0.format(prods) + ' productos · ' + mill(ct) + ' en inventario · <strong>' + nf0.format(rv) + ' a revisar</strong> con los criterios actuales';
+    }
+    $('goBtn').disabled = n === 0;
+    var names0 = brandNames();
+    var act = presets.filter(function (p) { var pr = p.brands.filter(function (b) { return names0.has(b); }); return pr.length && pr.length === n && pr.every(function (b) { return state.selected.has(b); }); })[0];
+    $('brandSum3').textContent = n === 0 ? '' : (all ? 'Todas las marcas (' + tot + ')' : act ? act.name + ' (' + n + ')' : n <= 4 ? sel.map(function (b) { return b.marca; }).join(', ') : n + ' marcas seleccionadas');
+    renderPresets();
+  }
+  function openMs(open) {
+    $('msPanel').hidden = !open; $('msBtn').setAttribute('aria-expanded', String(open));
+    if (open) $('msSearch').focus();
+  }
+  $('msBtn').addEventListener('click', function () { openMs($('msPanel').hidden); });
+  document.addEventListener('click', function (e) { if (!$('ms').contains(e.target)) openMs(false); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('msPanel').hidden) { openMs(false); $('msBtn').focus(); } });
+  $('msSearch').addEventListener('input', renderBrands);
+  $('msList').addEventListener('change', function (e) {
+    var b = e.target.getAttribute('data-b'); if (b == null) return;
+    if (e.target.checked) state.selected.add(b); else state.selected.delete(b);
+    renderBrands();
+  });
+  $('msAll').addEventListener('click', function () { visibleBrands().forEach(function (b) { state.selected.add(b.marca); }); renderBrands(); });
+  $('msNone').addEventListener('click', function () { visibleBrands().forEach(function (b) { state.selected.delete(b.marca); }); renderBrands(); });
+  $('allBrands').addEventListener('change', function () {
+    state.selected = $('allBrands').checked ? new Set(state.brands.map(function (b) { return b.marca; })) : new Set();
+    renderBrands();
+  });
+  $('chips').addEventListener('click', function (e) { var b = e.target.getAttribute('data-x'); if (b == null) return; state.selected.delete(b); renderBrands(); });
+  $('goBtn').addEventListener('click', function () { if (!state.selected.size) return; state.showAll = false; recompute(); go(3); });
+  $('backTo1').addEventListener('click', function () { go(1); });
+  $('backTo1b').addEventListener('click', function () { go(1); });
+  function wipe() {
+    state.rows = []; state.brands = []; state.selected = new Set(); state.res = null; state.fileName = ''; state.showAll = false;
+    ['prodTab', 'brandTab', 'prioBar', 'prioLegend', 'msList', 'chips', 'colTab'].forEach(function (id) { $(id).innerHTML = ''; });
+    ['fileName2', 'fileName3', 'fileCount', 'brandSum3', 'selSum', 'genMsg'].forEach(function (id) { $(id).textContent = ''; });
+    ['kN', 'kCt', 'kPct', 'kZ'].forEach(function (id) { $(id).textContent = '—'; });
+    ['kNs', 'kCts', 'kPcts', 'kZs'].forEach(function (id) { $(id).textContent = ''; });
+    $('colsBox').hidden = true; $('msSearch').value = '';
+    setStatus('<span class="ok">✓ Datos borrados de esta página.</span>');
+    go(1);
+  }
+  $('wipe2').addEventListener('click', wipe);
+  $('wipe3').addEventListener('click', wipe);
+  $('backTo2').addEventListener('click', function () { renderBrands(); go(2); });
+
+  // ---------- pantalla 3: criterios y dashboard
+  var PIN = { pVentas: 'ventas', pStock: 'stockMin', pAlto: 'alto', pExcep: 'excep', pAlta: 'alta', pCrit: 'critica' };
+  function fillParams() { Object.keys(PIN).forEach(function (id) { $(id).value = state.P[PIN[id]]; }); }
+  var tmr;
+  Object.keys(PIN).forEach(function (id) {
+    $(id).addEventListener('input', function () {
+      var v = parseFloat($(id).value);
+      if (isFinite(v) && v >= 0) { state.P[PIN[id]] = v; clearTimeout(tmr); tmr = setTimeout(recompute, 180); }
+    });
+  });
+  $('pReset').addEventListener('click', function () { state.P = Object.assign({}, C.DEFAULTS); fillParams(); recompute(); });
+
+  function recompute() {
+    computeReviewByBrand();
+    state.res = C.analyze(state.rows, Array.from(state.selected), state.P);
+    renderResults(state.res); renderBrands(); save();
+  }
+
+  function renderResults(res) {
+    var s = res.sum;
+    $('kN').textContent = nf0.format(s.n);
+    $('kNs').textContent = 'de ' + nf0.format(res.base.length) + ' productos';
+    $('kCt').textContent = mill(s.ct);
+    $('kCts').textContent = nf0.format(s.stock) + ' unid. en stock';
+    $('kPct').textContent = res.total ? pct(s.ct / res.total) : '—';
+    $('kPcts').textContent = 'de ' + mill(res.total);
+    $('kZ').textContent = nf0.format(s.zero);
+    $('kZs').textContent = nf0.format(s.u4s) + ' unid. vendidas en total';
+
+    $('prioBar').innerHTML = s.ct ? res.byPrio.filter(function (p) { return p.ct > 0; }).map(function (p) {
+      return '<i style="width:' + (p.ct / s.ct * 100) + '%;background:var(' + PVAR[p.prio] + ')" title="' + PNAME[p.prio] + ': ' + mill(p.ct) + '"></i>';
+    }).join('') : '';
+    var P = state.P;
+    var cut = { '1-Crítica': '≥ ' + mill(P.critica), '2-Alta': mill(P.alta) + ' – ' + mill(P.critica), '3-Media': mill(P.alto) + ' – ' + mill(P.alta), '4-Stock bajo': 'Stock ≤ ' + P.stockMin + ' y > ' + mill(P.excep) };
+    $('prioLegend').innerHTML = res.byPrio.map(function (p) {
+      return '<div class="lg" style="--c:var(' + PVAR[p.prio] + ')"><span class="t">' + PNAME[p.prio] + '</span><span class="n">' + p.n + ' · ' + mill(p.ct) + '</span><span class="c">' + cut[p.prio] + '</span></div>';
+    }).join('');
+
+    $('brandTab').innerHTML = '<thead><tr><th>Marca</th><th class="r">A revisar</th><th class="r">Costo inmovilizado</th><th class="r">% de su inventario</th></tr></thead><tbody>' +
+      res.byBrand.map(function (b) {
+        var f = b.total ? b.ct / b.total : 0;
+        return '<tr><td><strong>' + esc(b.marca) + '</strong></td><td class="r num">' + b.n + '</td><td class="r num">' + mill(b.ct) + '</td><td class="r"><span class="num">' + pct(f) + '</span><div class="brandbar"><i style="width:' + (f * 100) + '%"></i></div></td></tr>';
+      }).join('') + '</tbody>';
+
+    var LIMIT = 40, rows = state.showAll ? res.review : res.review.slice(0, LIMIT);
+    $('prodHint').textContent = res.review.length ? 'Ordenados por costo total · ' + nf0.format(res.review.length) + ' en total' : '';
+    if (!res.review.length) $('prodTab').innerHTML = '<tr><td class="empty">Ningún producto de estas marcas cumple los criterios.</td></tr>';
+    else {
+      $('prodTab').innerHTML = '<thead><tr><th>#</th><th>Prioridad</th><th>Producto</th><th>Sem. 4·3·2·1</th><th class="r">Stock</th><th>JD</th><th class="r">Costo total</th><th>Acción sugerida</th></tr></thead><tbody>' +
+        rows.map(function (r, i) {
+          var wk = [r.w4, r.w3, r.w2, r.w1].map(function (w) { return '<b class="' + (w < 0 ? 'neg' : w === 0 ? 'z' : '') + '">' + w + '</b>'; }).join('');
+          return '<tr><td class="num">' + (i + 1) + '</td><td><span class="pill ' + PCLS[r._e.prio] + '">' + PNAME[r._e.prio] + '</span></td>' +
+            '<td class="prod"><div class="d">' + esc(r.desc) + '</div><div class="m">' + esc(r.marca) + ' · ' + esc(r.id) + '</div></td>' +
+            '<td><div class="wk">' + wk + '</div></td><td class="r num">' + nf0.format(r.stock) + '</td><td class="num jd">' + (r.jd ? esc(r.jd) : '<span class="hint">—</span>') + '</td>' +
+            '<td class="r num">' + money(r.ct) + '</td><td class="act">' + esc(r._action) + '</td></tr>';
+        }).join('') + '</tbody>';
+    }
+    var more = res.review.length > LIMIT;
+    $('moreBtn').hidden = !more;
+    if (more) $('moreBtn').textContent = state.showAll ? 'Mostrar solo los primeros ' + LIMIT : 'Mostrar los ' + nf0.format(res.review.length) + ' productos';
+    $('genBtn').disabled = res.base.length === 0;
+    $('genMsg').className = 'msg';
+    $('genMsg').textContent = nf0.format(s.n) + ' productos · ' + state.selected.size + (state.selected.size === 1 ? ' marca' : ' marcas');
+  }
+  $('moreBtn').addEventListener('click', function () { state.showAll = !state.showAll; renderResults(state.res); });
+
+  // ---------- descarga del Excel
+  // Dentro de Claude se usa la capacidad "downloads"; en GitHub Pages u otro sitio, descarga directa.
+  var dlPromise = (window.claude && typeof window.claude.use === 'function') ? Promise.resolve(window.claude.use('downloads')).catch(function () { return null; }) : Promise.resolve(null);
+  function saveFile(blob, name) {
+    return dlPromise.then(function (dl) {
+      if (dl) return dl.save({ filename: name, data: blob });
+      var url = URL.createObjectURL(blob), a = document.createElement('a');
+      a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+      return { status: 'saved' };
+    });
+  }
+  function brandLabel() {
+    var sel = Array.from(state.selected);
+    if (sel.length === state.brands.length) return 'Todas las marcas';
+    return sel.length <= 3 ? sel.join(', ') : sel.length + ' marcas';
+  }
+  function fileOut() {
+    var sel = Array.from(state.selected), tag;
+    if (sel.length === state.brands.length) tag = 'Todas';
+    else if (sel.length <= 3) tag = sel.map(function (s) { return s.replace(/[^A-Za-z0-9]+/g, '-'); }).join('_');
+    else tag = sel.length + '_marcas';
+    return 'Revision_inventario_' + tag + '_' + state.fileDate + '.xlsx';
+  }
+  $('genBtn').addEventListener('click', function () {
+    if (!state.res || !window.ExcelJS) return;
+    var btn = $('genBtn'), msg = $('genMsg'), name = fileOut();
+    btn.disabled = true; msg.className = 'msg'; msg.textContent = 'Generando Excel…';
+    var sel = state.brands.filter(function (b) { return state.selected.has(b.marca); }).map(function (b) { return b.marca; });
+    var wb = C.buildWorkbook(ExcelJS, state.res, state.P, {
+      fileName: state.fileName, generated: new Date().toLocaleString('es-CO'), brandLabel: brandLabel(), brandList: sel.join(', ')
+    });
+    wb.xlsx.writeBuffer().then(function (buf) {
+      return saveFile(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), name);
+    }).then(function (r) {
+      msg.className = 'msg ok'; msg.textContent = r && r.status === 'delivered' ? 'Archivo enviado.' : 'Excel descargado: ' + name;
+    }).catch(function (e) {
+      var code = e && e.code;
+      msg.className = 'msg' + (code === 'declined' ? '' : ' err');
+      msg.textContent = code === 'declined' ? 'Descarga cancelada.' : code === 'rate_limited' ? 'Ya hay una descarga pendiente; espera un momento e inténtalo de nuevo.' :
+        'No se pudo descargar el archivo (' + (code || (e && e.message) || 'error') + ').';
+    }).then(function () { btn.disabled = false; });
+  });
+
+  // ---------- inicio
+  fillParams();
+  go(1);
+})();
+
+</script>
+</body>
+</html>
