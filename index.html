@@ -235,6 +235,10 @@ table.t .r{text-align:right}
 .fchip .ct{font:500 11.5px var(--f-mono);color:var(--muted)}
 .fchip.all{--c:var(--accent)}
 .cls{display:inline-block;font:600 11.5px/1.2 var(--f-body);padding:3px 7px;border-radius:4px;background:var(--sunk);border:1px solid var(--line);white-space:nowrap}
+.brow{cursor:pointer}
+.brow:hover td{background:var(--sunk)}
+.brow.off td{opacity:.4}
+.brow.off .brandbar i{background:var(--muted)}
 </style>
 </head>
 <body>
@@ -366,8 +370,10 @@ table.t .r{text-align:right}
       </section>
 
       <section class="panel">
-        <div class="panel-h"><h3>Por marca</h3><span class="hint">Barra = % del inventario de la marca que está en revisión</span></div>
+        <div class="panel-h"><h3>Por marca</h3><span class="hint" id="brandHint2"></span></div>
+        <div class="pfilter" id="brandFilter" role="group" aria-label="Filtrar el dashboard por marca"></div>
         <div class="scroll"><table class="t" id="brandTab"></table></div>
+        <span class="hint">Barra = % del inventario de la marca que está en revisión. Haz clic en una fila o en una marca para incluirla o quitarla.</span>
       </section>
 
       <section class="panel">
@@ -510,9 +516,9 @@ table.t .r{text-align:right}
   function action(r, P, dupSet) {
     var a;
     var weeks = [r.w4, r.w3, r.w2, r.w1];
-    if (r.stock <= P.stockMin) a = 'Pocas unidades pero de alto valor: revisar precio y publicación, o liquidar antes de que pierda vigencia';
-    else if (r.u4s <= 0) a = 'Sin ventas en 4 semanas: revisar publicación/precio, liquidar o negociar devolución con proveedor';
-    else if (r.sp != null && r.sp > 100) a = 'Rota muy lento (más de 100 semanas de stock): promoción agresiva, combos o bajar precio';
+    if (r.stock <= P.stockMin) a = 'Pocas unidades de alto valor: comparar precio con la competencia, mejorar fotos y ficha, y destacarlo en marketplaces y tienda propia';
+    else if (r.u4s <= 0) a = 'Sin ventas en 4 semanas: verificar que esté publicado y activo en todos los canales, ajustar precio frente a la competencia, mejorar ficha/fotos y activar Ads';
+    else if (r.sp != null && r.sp > 100) a = 'Rota muy lento (más de 100 semanas de stock): promoción, combos con productos de alta rotación, ajuste de precio y venta B2B/corporativa';
     else if (r.sp != null && r.sp > 52) a = 'Más de 1 año de stock: activar Ads/promoción y frenar recompra';
     else a = 'Venta baja: revisar posicionamiento y frenar recompra hasta que rote';
     if (weeks.some(function (w) { return w < 0; })) a += ' · Ojo: tiene cantidades negativas (devoluciones)';
@@ -731,7 +737,7 @@ table.t .r{text-align:right}
   'use strict';
   var C = window.Core;
   var $ = function (id) { return document.getElementById(id); };
-  var state = { rows: [], fileName: '', fileDate: '', brands: [], selected: new Set(), P: Object.assign({}, C.DEFAULTS), res: null, showAll: false, prioFilter: new Set(C.PRIOS) };
+  var state = { rows: [], fileName: '', fileDate: '', brands: [], selected: new Set(), P: Object.assign({}, C.DEFAULTS), res: null, resAll: null, showAll: false, prioFilter: new Set(C.PRIOS), dashBrands: null };
 
   // Privacidad: nada se guarda en el navegador (sin almacenamiento local, cookies ni envíos de red).
   function save() {}
@@ -967,12 +973,12 @@ table.t .r{text-align:right}
     renderBrands();
   });
   $('chips').addEventListener('click', function (e) { var b = e.target.getAttribute('data-x'); if (b == null) return; state.selected.delete(b); renderBrands(); });
-  $('goBtn').addEventListener('click', function () { if (!state.selected.size) return; state.showAll = false; state.prioFilter = new Set(C.PRIOS); recompute(); go(3); });
+  $('goBtn').addEventListener('click', function () { if (!state.selected.size) return; state.showAll = false; state.prioFilter = new Set(C.PRIOS); state.dashBrands = null; recompute(); go(3); });
   $('backTo1').addEventListener('click', function () { go(1); });
   $('backTo1b').addEventListener('click', function () { go(1); });
   function wipe() {
-    state.rows = []; state.brands = []; state.selected = new Set(); state.res = null; state.fileName = ''; state.showAll = false;
-    ['prodTab', 'brandTab', 'prioBar', 'prioLegend', 'msList', 'chips', 'colTab', 'prioFilter'].forEach(function (id) { $(id).innerHTML = ''; });
+    state.rows = []; state.brands = []; state.selected = new Set(); state.res = null; state.resAll = null; state.dashBrands = null; state.fileName = ''; state.showAll = false;
+    ['prodTab', 'brandTab', 'prioBar', 'prioLegend', 'msList', 'chips', 'colTab', 'prioFilter', 'brandFilter'].forEach(function (id) { $(id).innerHTML = ''; });
     ['fileName2', 'fileName3', 'fileCount', 'brandSum3', 'selSum', 'genMsg'].forEach(function (id) { $(id).textContent = ''; });
     ['kN', 'kCt', 'kPct', 'kZ'].forEach(function (id) { $(id).textContent = '—'; });
     ['kNs', 'kCts', 'kPcts', 'kZs'].forEach(function (id) { $(id).textContent = ''; });
@@ -998,10 +1004,19 @@ table.t .r{text-align:right}
 
   function recompute() {
     computeReviewByBrand();
-    state.res = C.analyze(state.rows, Array.from(state.selected), state.P);
+    // resAll: todas las marcas seleccionadas (tabla "Por marca"); res: solo las marcas filtradas en el dashboard
+    state.resAll = C.analyze(state.rows, Array.from(state.selected), state.P);
+    var dash = dashList();
+    state.res = dash.length === state.selected.size ? state.resAll : C.analyze(state.rows, dash, state.P);
     renderResults(state.res); renderBrands(); save();
   }
 
+  function dashList() {
+    if (!state.dashBrands) return Array.from(state.selected);
+    var l = Array.from(state.selected).filter(function (b) { return state.dashBrands.has(b); });
+    return l.length ? l : Array.from(state.selected);
+  }
+  function dashAll() { return dashList().length === state.selected.size; }
   function renderResults(res) {
     var s = res.sum;
     $('kN').textContent = nf0.format(s.n);
@@ -1022,11 +1037,18 @@ table.t .r{text-align:right}
       return '<div class="lg" style="--c:var(' + PVAR[p.prio] + ')"><span class="t">' + PNAME[p.prio] + '</span><span class="n">' + p.n + ' · ' + mill(p.ct) + '</span><span class="c">' + cut[p.prio] + '</span></div>';
     }).join('');
 
+    // filtro por marca (una o más); por defecto todas
+    var ra = state.resAll || res, dset = new Set(dashList()), allB = dashAll();
+    $('brandFilter').innerHTML = '<span class="lbl">Marcas:</span><button type="button" class="fchip all" data-bf="*" aria-pressed="' + allB + '"><i></i>Todas <span class="ct">' + ra.byBrand.length + '</span></button>' +
+      ra.byBrand.map(function (b) {
+        return '<button type="button" class="fchip" style="--c:var(--accent)" data-bf="' + esc(b.marca) + '" aria-pressed="' + (!allB && dset.has(b.marca)) + '"><i></i>' + esc(b.marca) + ' <span class="ct">' + b.n + '</span></button>';
+      }).join('');
     $('brandTab').innerHTML = '<thead><tr><th>Marca</th><th class="r">A revisar</th><th class="r">Costo inmovilizado</th><th class="r">% de su inventario</th></tr></thead><tbody>' +
-      res.byBrand.map(function (b) {
-        var f = b.total ? b.ct / b.total : 0;
-        return '<tr><td><strong>' + esc(b.marca) + '</strong></td><td class="r num">' + b.n + '</td><td class="r num">' + mill(b.ct) + '</td><td class="r"><span class="num">' + pct(f) + '</span><div class="brandbar"><i style="width:' + (f * 100) + '%"></i></div></td></tr>';
+      ra.byBrand.map(function (b) {
+        var f = b.total ? b.ct / b.total : 0, on = dset.has(b.marca);
+        return '<tr class="brow' + (on ? '' : ' off') + '" data-bf="' + esc(b.marca) + '" title="' + (on ? 'Incluida' : 'No incluida') + ' en el análisis"><td><strong>' + esc(b.marca) + '</strong></td><td class="r num">' + b.n + '</td><td class="r num">' + mill(b.ct) + '</td><td class="r"><span class="num">' + pct(f) + '</span><div class="brandbar"><i style="width:' + (f * 100) + '%"></i></div></td></tr>';
       }).join('') + '</tbody>';
+    $('brandHint2').textContent = allB ? 'Todas las marcas incluidas' : 'Incluidas ' + dset.size + ' de ' + ra.byBrand.length + ' marcas · todo el dashboard y el Excel se ajustan';
 
     // filtro por prioridad (una o más)
     var counts = {}; res.byPrio.forEach(function (p) { counts[p.prio] = p.n; });
@@ -1059,8 +1081,22 @@ table.t .r{text-align:right}
     if (more) $('moreBtn').textContent = state.showAll ? 'Mostrar solo los primeros ' + LIMIT : 'Mostrar los ' + nf0.format(filtered.length) + ' productos';
     $('genBtn').disabled = res.base.length === 0;
     $('genMsg').className = 'msg';
-    $('genMsg').textContent = nf0.format(s.n) + ' productos · ' + state.selected.size + (state.selected.size === 1 ? ' marca' : ' marcas');
+    var nb = dashList().length;
+    $('genMsg').textContent = nf0.format(s.n) + ' productos · ' + nb + (nb === 1 ? ' marca' : ' marcas');
   }
+  function toggleDashBrand(b) {
+    var all = dashAll();
+    if (b === '*') state.dashBrands = null;
+    else if (all) state.dashBrands = new Set([b]);
+    else {
+      var s = new Set(dashList());
+      if (s.has(b)) s.delete(b); else s.add(b);
+      state.dashBrands = (s.size === 0 || s.size === state.selected.size) ? null : s;
+    }
+    state.showAll = false; recompute();
+  }
+  $('brandFilter').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) toggleDashBrand(b.getAttribute('data-bf')); });
+  $('brandTab').addEventListener('click', function (e) { var tr = e.target.closest('tr[data-bf]'); if (tr) toggleDashBrand(tr.getAttribute('data-bf')); });
   $('prioFilter').addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
     var p = b.getAttribute('data-pf');
@@ -1088,12 +1124,12 @@ table.t .r{text-align:right}
     });
   }
   function brandLabel() {
-    var sel = Array.from(state.selected);
+    var sel = dashList();
     if (sel.length === state.brands.length) return 'Todas las marcas';
     return sel.length <= 3 ? sel.join(', ') : sel.length + ' marcas';
   }
   function fileOut() {
-    var sel = Array.from(state.selected), tag;
+    var sel = dashList(), tag;
     if (sel.length === state.brands.length) tag = 'Todas';
     else if (sel.length <= 3) tag = sel.map(function (s) { return s.replace(/[^A-Za-z0-9]+/g, '-'); }).join('_');
     else tag = sel.length + '_marcas';
@@ -1103,7 +1139,8 @@ table.t .r{text-align:right}
     if (!state.res || !window.ExcelJS) return;
     var btn = $('genBtn'), msg = $('genMsg'), name = fileOut();
     btn.disabled = true; msg.className = 'msg'; msg.textContent = 'Generando Excel…';
-    var sel = state.brands.filter(function (b) { return state.selected.has(b.marca); }).map(function (b) { return b.marca; });
+    var ds = new Set(dashList());
+    var sel = state.brands.filter(function (b) { return ds.has(b.marca); }).map(function (b) { return b.marca; });
     var wb = C.buildWorkbook(ExcelJS, state.res, state.P, {
       fileName: state.fileName, generated: new Date().toLocaleString('es-CO'), brandLabel: brandLabel(), brandList: sel.join(', ')
     });
