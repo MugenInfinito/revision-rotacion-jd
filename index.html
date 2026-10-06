@@ -239,6 +239,17 @@ table.t .r{text-align:right}
 .brow:hover td{background:var(--sunk)}
 .brow.off td{opacity:.4}
 .brow.off .brandbar i{background:var(--muted)}
+.combo{margin-top:6px;padding:5px 8px;border-left:3px solid var(--accent);background:var(--sunk);border-radius:0 4px 4px 0;color:var(--ink)}
+.combo[open]{display:flex;flex-direction:column;gap:3px}
+.combo summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;font:600 11px/1.2 var(--f-display);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.combo summary::-webkit-details-marker{display:none}
+.combo summary::before{content:"";width:0;height:0;border-left:5px solid currentColor;border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .15s}
+.combo[open] summary::before{transform:rotate(90deg)}
+.combo summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.combo.none summary{color:var(--muted)}
+.combo .ci{font-size:12px;line-height:1.35}
+.combo .ci em{display:block;font:normal 400 11px var(--f-mono);color:var(--muted)}
+.combo.none{font-size:11.5px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -526,6 +537,60 @@ table.t .r{text-align:right}
     return a;
   }
 
+
+  // ---------- combos con productos de alta rotación (solo marcas filtradas)
+  var CATS = [
+    ['pad', /pad mouse|mouse ?pad|alfombrilla/],
+    ['soporte_tv', /soporte.*(tv|televisor|video ?beam|proyector|pared|techo|parlante)/],
+    ['combo', /combo.*teclado|teclado.*mouse|combo.*mouse/],
+    ['teclado', /teclado|keyboard/],
+    ['mouse', /mouse/],
+    ['silla', /silla/],
+    ['escritorio', /escritorio/],
+    ['audio', /diadema|aud[ií]fono|headset|buds|in ear|earbuds|auricular/],
+    ['parlante', /parlante|altavoc|barra de sonido|partybox|speaker/],
+    ['mic', /micr[oó]fono/],
+    ['camara', /c[aá]mara|webcam/],
+    ['energia', /\bups\b|regulador|multitoma|regleta|planta el[eé]ctrica|generador/],
+    ['cargador', /cargador|power ?bank|base de carga|charging|bater[ií]a externa/],
+    ['red', /router|extensor|\bmesh\b|deco |access point|wi-?fi usb|tarjeta de red/],
+    ['memoria', /micro ?sd|sdxc|sdhc|memoria|usb flash|\bssd\b|disco/],
+    ['reloj', /watch|smartwatch|\bband\b/],
+    ['tablet', /tablet|\bpad\b/],
+    ['celular', /celular|smartphone/],
+    ['gamepad', /control|gamepad|volante/],
+    ['soporte', /soporte|base para port|base refrigerante|cooling/],
+    ['carga', /cable|adaptador|\bhub\b|dock/]
+  ];
+  var COMP = {
+    teclado: ['mouse', 'pad', 'audio', 'soporte'], mouse: ['pad', 'teclado', 'audio'], pad: ['mouse', 'teclado', 'combo'],
+    combo: ['pad', 'audio', 'soporte'], audio: ['mouse', 'teclado', 'mic', 'carga'], parlante: ['carga', 'memoria'],
+    mic: ['audio', 'soporte'], silla: ['escritorio', 'pad', 'audio'], escritorio: ['silla', 'soporte', 'pad'],
+    soporte: ['teclado', 'mouse', 'combo'], carga: ['celular', 'reloj', 'audio', 'parlante', 'tablet'],
+    energia: ['red', 'carga'], red: ['energia', 'camara'], camara: ['memoria', 'red', 'energia'],
+    memoria: ['camara', 'celular', 'tablet'], reloj: ['audio', 'carga'], tablet: ['carga', 'memoria', 'audio'],
+    celular: ['carga', 'audio', 'memoria'], gamepad: ['audio', 'carga']
+  };
+  function category(desc) { var d = norm(desc); for (var i = 0; i < CATS.length; i++) if (CATS[i][1].test(d)) return CATS[i][0] === 'cargador' ? 'carga' : CATS[i][0]; return ''; }
+  function highRotation(base, reviewIds) {
+    var withSales = base.filter(function (r) { return r.u4s > 0; }).map(function (r) { return r.u4s; }).sort(function (a, b) { return a - b; });
+    var p80 = withSales.length ? withSales[Math.floor(withSales.length * 0.8)] : 0;
+    var min = Math.max(12, p80);
+    return base.filter(function (r) { return r.u4s >= min && r.stock >= 5 && r.clasif !== 'Sin stock' && !reviewIds.has(r.id); })
+      .map(function (r) { if (r._cat == null) r._cat = category(r.desc); return r; });
+  }
+  function comboFor(slow, pool) {
+    var sc = slow._cat != null ? slow._cat : (slow._cat = category(slow.desc));
+    var comp = COMP[sc] || [];
+    return pool.map(function (h) {
+      if (sc && h._cat === sc) return null;
+      var isComp = comp.indexOf(h._cat) >= 0, same = h.marca === slow.marca;
+      if (comp.length ? !isComp : !same) return null;
+      var s = (isComp ? 3 : 0) + (same ? 2 : 0) + ((h.cu || 0) <= (slow.cu || 0) ? 1 : 0) + Math.min(h.u4s / 50, 2);
+      return { r: h, s: s };
+    }).filter(Boolean).sort(function (a, b) { return b.s - a.s; }).slice(0, 2).map(function (x) { return x.r; });
+  }
+
   function analyze(allRows, brands, P) {
     var set = new Set(brands);
     var base = allRows.filter(function (r) { return set.has(r.marca); });
@@ -541,6 +606,8 @@ table.t .r{text-align:right}
     });
     review.sort(function (a, b) { return b.ct - a.ct; });
     review.forEach(function (r) { r._action = action(r, P, dupSet); });
+    var pool = highRotation(base, new Set(review.map(function (r) { return r.id; })));
+    review.forEach(function (r) { r._combo = /combos con productos de alta rotación/.test(r._action) ? comboFor(r, pool) : null; });
     var byPrio = PRIOS.map(function (p) { return { prio: p, n: 0, ct: 0 }; });
     var byBrand = {};
     var sum = { n: review.length, ct: 0, stock: 0, u4s: 0, zero: 0 };
@@ -552,9 +619,14 @@ table.t .r{text-align:right}
     var brandTotals = {}; base.forEach(function (r) { brandTotals[r.marca] = (brandTotals[r.marca] || 0) + r.ct; });
     var brandRows = brands.map(function (m) { var b = byBrand[m] || { marca: m, n: 0, ct: 0 }; b.total = brandTotals[m] || 0; return b; })
       .sort(function (a, b) { return b.ct - a.ct || b.total - a.total; });
-    return { base: base, review: review, total: total, byPrio: byPrio, byBrand: brandRows, sum: sum };
+    return { base: base, review: review, total: total, byPrio: byPrio, byBrand: brandRows, sum: sum, pool: pool };
   }
 
+  function comboText(r) {
+    if (!r._combo) return null;
+    if (!r._combo.length) return 'Sin productos de alta rotación complementarios en las marcas filtradas';
+    return r._combo.map(function (h) { return h.desc + ' (' + h.marca + ' · ' + h.id + ' · ' + h.u4s + ' unid. en 4 sem.)'; }).join(' | ');
+  }
   // ---------------- Excel de salida ----------------
   function buildWorkbook(ExcelJS, res, P, meta) {
     var wb = new ExcelJS.Workbook();
@@ -640,7 +712,7 @@ table.t .r{text-align:right}
       ' con costo total ≥ ' + money(P.alto) + ', o stock ≤ ' + P.stockMin + ' con costo total > ' + money(P.excep) + '; sin "Sin stock"', { name: 'Arial', size: 12, bold: true });
     put(ar, 'A2', 'Fuente: ' + meta.fileName + ' · Marcas: ' + meta.brandLabel + '. Ordenado de mayor a menor costo total inmovilizado. La acción sugerida es orientativa.', { name: 'Arial', size: 9, italic: true });
     var oc = ['#', 'Prioridad', 'id_producto', 'marca', 'descripcion', 'clasificación_inventario', 'U4S_4_cantidad', 'U4S_3_cantidad', 'U4S_2_cantidad', 'U4S_1_cantidad',
-      'U4S_cantidad', 'Semanas sin venta (de 4)', 'stock_actual', 'costo_unitario_actual', 'JD', 'costo_total_actual', '% del inventario total', '% acumulado', 'semanas_proyectadas', 'Acción sugerida'];
+      'U4S_cantidad', 'Semanas sin venta (de 4)', 'stock_actual', 'costo_unitario_actual', 'JD', 'costo_total_actual', '% del inventario total', '% acumulado', 'semanas_proyectadas', 'Acción sugerida', 'Combo sugerido (alta rotación, marcas filtradas)'];
     var R0 = 4;
     hdr(ar, R0, oc); ar.getRow(R0).height = 42;
     var acc = 0;
@@ -653,9 +725,9 @@ table.t .r{text-align:right}
         F('COUNTIF(G' + i + ':J' + i + ',"<=0")', zeroW), r.stock, r.cu, r.jd, r.ct,
         F('P' + i + '/' + SUMBASE, res.total ? r.ct / res.total : 0),
         F('SUM($P$' + (R0 + 1) + ':P' + i + ')/' + SUMBASE, res.total ? acc / res.total : 0),
-        r.sp, r._action];
+        r.sp, r._action, comboText(r)];
       vals.forEach(function (v, j) { var c = row.getCell(j + 1); c.value = v; c.font = AR; c.border = bd; });
-      row.getCell(20).font = { name: 'Arial', size: 9 };
+      row.getCell(20).font = { name: 'Arial', size: 9 }; row.getCell(21).font = { name: 'Arial', size: 9 }; row.getCell(21).border = bd;
       row.getCell(14).numFmt = MON; row.getCell(15).numFmt = '@'; row.getCell(15).alignment = { horizontal: 'center' };
       row.getCell(16).numFmt = MON; row.getCell(17).numFmt = '0.0%'; row.getCell(18).numFmt = '0.0%'; row.getCell(19).numFmt = '0';
       row.getCell(2).fill = fill(PF[r._e.prio]);
@@ -667,12 +739,15 @@ table.t .r{text-align:right}
       put(ar, 'M' + t, F('SUM(M' + (R0 + 1) + ':M' + L + ')', res.sum.stock), B, '#,##0');
       put(ar, 'P' + t, F('SUM(P' + (R0 + 1) + ':P' + L + ')', res.sum.ct), B, MON);
       put(ar, 'Q' + t, F('P' + t + '/' + SUMBASE, res.total ? res.sum.ct / res.total : 0), B, '0.0%');
-      ar.autoFilter = 'A' + R0 + ':T' + L;
+      ar.autoFilter = 'A' + R0 + ':U' + L;
     } else {
       put(ar, 'A5', 'Ningún producto cumple los criterios con las marcas seleccionadas.', AR);
     }
-    [5, 12, 17, 11, 55, 13, 7, 7, 7, 7, 8, 9, 9, 13, 13, 15, 10, 10, 11, 80].forEach(function (w, j) { ar.getColumn(j + 1).width = w; });
+    [5, 12, 17, 11, 55, 13, 7, 7, 7, 7, 8, 9, 9, 13, 13, 15, 10, 10, 11, 80, 70].forEach(function (w, j) { ar.getColumn(j + 1).width = w; });
     ar.views = [{ state: 'frozen', xSplit: 5, ySplit: R0 }];
+    // columna de combos agrupada y contraída: se despliega con el botón + sobre la columna
+    ar.getColumn(21).outlineLevel = 1; ar.getColumn(21).hidden = true;
+    ar.properties.outlineLevelCol = 1;
 
     // ---- Resumen
     put(rs, 'A1', 'Resumen — productos con costo alto y venta baja', { name: 'Arial', size: 13, bold: true });
@@ -727,7 +802,7 @@ table.t .r{text-align:right}
   }
 
   var api = { COLS: COLS, PRIOS: PRIOS, DEFAULTS: DEFAULTS, parseGrid: parseGrid, parseExcelJS: parseExcelJS, fromCompact: fromCompact,
-    brandStats: brandStats, analyze: analyze, evalRow: evalRow, buildWorkbook: buildWorkbook, cellVal: cellVal };
+    brandStats: brandStats, analyze: analyze, comboText: comboText, evalRow: evalRow, buildWorkbook: buildWorkbook, cellVal: cellVal };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Core = api;
 })(typeof window !== 'undefined' ? window : this);
 
@@ -1017,6 +1092,14 @@ table.t .r{text-align:right}
     return l.length ? l : Array.from(state.selected);
   }
   function dashAll() { return dashList().length === state.selected.size; }
+  function comboHtml(r) {
+    if (!r._combo) return '';
+    if (!r._combo.length) return '<details class="combo none"><summary>Combo sugerido (0)</summary><span>Sin productos de alta rotación complementarios en las marcas filtradas.</span></details>';
+    return '<details class="combo"><summary>Combo sugerido con (' + r._combo.length + ')</summary>' + r._combo.map(function (h) {
+      var d = h.desc.length > 60 ? h.desc.slice(0, 58) + '…' : h.desc;
+      return '<span class="ci">' + esc(d) + ' <em>' + esc(h.marca) + ' · ' + h.u4s + ' unid./4 sem · stock ' + nf0.format(h.stock) + '</em></span>';
+    }).join('') + '</details>';
+  }
   function renderResults(res) {
     var s = res.sum;
     $('kN').textContent = nf0.format(s.n);
@@ -1073,7 +1156,7 @@ table.t .r{text-align:right}
             '<td><div class="wk">' + wk + '</div></td><td class="r num">' + nf0.format(r.stock) + '</td>' +
             '<td class="r num">' + (r.cu != null ? money(r.cu) : '<span class="hint">—</span>') + '</td>' +
             '<td class="num jd">' + (r.jd ? esc(r.jd) : '<span class="hint">—</span>') + '</td>' +
-            '<td class="r num">' + money(r.ct) + '</td><td class="act">' + esc(r._action) + '</td></tr>';
+            '<td class="r num">' + money(r.ct) + '</td><td class="act">' + esc(r._action) + comboHtml(r) + '</td></tr>';
         }).join('') + '</tbody>';
     }
     var more = filtered.length > LIMIT;
